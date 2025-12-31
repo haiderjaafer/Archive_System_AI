@@ -1,5 +1,6 @@
 # main.py
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 from schemas import TextToStore, SearchQuery, SearchResult, StoreResponse
 from embedding_service import embedding_service
 from vector_service import vector_service
@@ -64,6 +65,59 @@ async def test_vector(data: dict):
 
 
 
+
+
+
+class HybridSearchQuery(BaseModel):
+    user_id: str
+    query: str
+    limit: int = 10
+    min_score: float = 0.7
+    boost_exact_match: bool = True
+
+@app.post("/api/hybrid-search", response_model=List[SearchResult])
+async def hybrid_search(query: HybridSearchQuery):
+    """Combines vector search with keyword boosting"""
+    try:
+        # Vector search
+        query_vector = embedding_service.generate_embedding(query.query)
+        # print(f"query_vector... ${query_vector}")
+        results = vector_service.search_vectors(query_vector, query.user_id, query.limit * 2)
+        # print(f"results... ${results}")
+        # Boost exact keyword matches
+        if query.boost_exact_match:
+            keywords = query.query.split()
+            print(f"keywords... ${keywords}")
+            for r in results:
+                text = r["payload"]["text"]
+                print(f"texts... ${text}")
+                # Boost score if any keyword appears in text
+                
+                exact_matches = sum(1 for kw in keywords if kw in text)
+                print(f"exact_matches... ${exact_matches}")
+                if exact_matches > 0:
+                    r["score"] = r["score"] + (exact_matches * 0.1)  # Boost by 0.1 per match
+        
+        # Filter and sort
+        filtered_results = [r for r in results if r["score"] >= query.min_score]
+        print(f"filtered_results.1.. ${filtered_results}")
+
+        filtered_results.sort(key=lambda x: x["score"], reverse=True)
+        print(f"filtered_results.2.. ${filtered_results}")
+
+        filtered_results = filtered_results[:query.limit]
+        print(f"filtered_results.3.. ${filtered_results}")
+
+        return [SearchResult(
+            id=r["id"], 
+            text=r["payload"]["text"], 
+            score=r["score"], 
+            metadata={k: v for k, v in r["payload"].items() if k not in ["user_id", "text"]}
+        ) for r in filtered_results]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
         
  # create .env file -> environment variable
    #python -m venv .venv
@@ -89,5 +143,5 @@ async def test_vector(data: dict):
 
 
     #uvicorn main:app --reload --port 8000
-    #python -m uvicorn main:app --port 8000
+    
       

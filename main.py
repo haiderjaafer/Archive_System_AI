@@ -116,6 +116,18 @@ async def hybrid_search(query: HybridSearchQuery):
         ) for r in filtered_results]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+
+
+@app.delete("/api/admin/reset-collection")
+async def reset_collection():
+    """Delete and recreate collection - USE CAREFULLY!"""
+    try:
+        vector_service.client.delete_collection(vector_service.collection_name)
+        vector_service._ensure_collection_exists()
+        return {"message": "Collection deleted and recreated with new dimensions"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
         

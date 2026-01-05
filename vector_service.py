@@ -15,7 +15,8 @@ class VectorService:
         except:
             self.client.create_collection(
                 collection_name=self.collection_name,
-                vectors_config=VectorParams(size=384, distance=Distance.COSINE)
+                # vectors_config=VectorParams(size=384, distance=Distance.COSINE)
+                vectors_config=VectorParams(size=768, distance=Distance.COSINE)  # ← NEW
             )
     
     def store_vector(self, vector: List[float], user_id: str, text: str, metadata: Dict = {}) -> str:
